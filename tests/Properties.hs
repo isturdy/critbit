@@ -113,6 +113,21 @@ updateFunction k x
     Just (x + fromIntegral (C.byteCount k))
   | otherwise = Nothing
 
+t_update_general :: (CritBitKey k)
+                 => (k -> V -> CritBit k V -> CritBit k V)
+                 -> k -> V -> CB k -> Bool
+t_update_general h k0 v0 (CB m0) = C.update f k0 m1 == naiveUpdate f k0 m1
+  where
+    m1 = h k0 v0 m0
+    naiveUpdate g k = snd . naiveUpdateLookupWithKey (\_ v -> g v) k
+    f = updateFunction BB.empty
+
+t_update_present :: (CritBitKey k) => k -> V -> CB k -> Bool
+t_update_present = t_update_general C.insert
+
+t_update_missing :: (CritBitKey k) => k -> V -> CB k -> Bool
+t_update_missing = t_update_general (\k _v m -> C.delete k m)
+
 t_updateWithKey_general :: (CritBitKey k)
                         => (k -> V -> CritBit k V -> CritBit k V)
                         -> k -> V -> CB k -> Bool
