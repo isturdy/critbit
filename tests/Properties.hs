@@ -144,6 +144,23 @@ t_updateWithKey_present = t_updateWithKey_general C.insert
 t_updateWithKey_missing :: (CritBitKey k) => k -> V -> CB k -> Bool
 t_updateWithKey_missing = t_updateWithKey_general (\k _v m -> C.delete k m)
 
+t_updateLookupWithKey_general :: (CritBitKey k)
+                              => (k -> V -> CritBit k V -> CritBit k V)
+                              -> k -> V -> CB k -> Bool
+t_updateLookupWithKey_general h k0 v0 (CB m0) =
+    C.updateLookupWithKey f k0 m1 == naiveUpdateLookupWithKey f k0 m1
+  where
+    m1 = h k0 v0 m0
+    f = updateFunction
+
+t_updateLookupWithKey_present :: (CritBitKey k) => k -> V -> CB k -> Bool
+t_updateLookupWithKey_present =
+  t_updateLookupWithKey_general C.insert
+
+t_updateLookupWithKey_missing :: (CritBitKey k) => k -> V -> CB k -> Bool
+t_updateLookupWithKey_missing =
+  t_updateLookupWithKey_general (\k _v m -> C.delete k m)
+
 t_mapMaybeWithKey :: (CritBitKey k) => k -> CB k -> Bool
 t_mapMaybeWithKey _ (CB m) = C.mapMaybeWithKey f m ==
     C.map fromJust (C.filter isJust (C.mapWithKey f m))
@@ -420,6 +437,10 @@ propertiesFor t = [
   , testProperty "t_delete_present" $ t_delete_present t
   , testProperty "t_updateWithKey_present" $ t_updateWithKey_present t
   , testProperty "t_updateWithKey_missing" $ t_updateWithKey_missing t
+  , testProperty "t_update_present" $ t_update_present t
+  , testProperty "t_update_missing" $ t_update_missing t
+  , testProperty "t_updateLookupWithKey_present" $ t_updateWithKey_present t
+  , testProperty "t_updateLookupWithKey_missing" $ t_updateWithKey_missing t
   , testProperty "t_mapMaybeWithKey" $ t_mapMaybeWithKey t
   , testProperty "t_unionL" $ t_unionL t
   , testProperty "t_unionR" $ t_unionR t

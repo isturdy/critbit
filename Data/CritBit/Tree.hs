@@ -39,7 +39,7 @@ module Data.CritBit.Tree
     -- , adjustWithKey
     , update
     , updateWithKey
-    -- , updateLookupWithKey
+    , updateLookupWithKey
     , alter
 
     -- * Combination
@@ -244,6 +244,32 @@ delete = updateWithKey (\_k _v -> Nothing)
 update :: (CritBitKey k) => (v -> Maybe v) -> k -> CritBit k v -> CritBit k v
 update f = updateWithKey (const f)
 {-# INLINABLE update #-}
+
+-- | /O(log n)/. Lookup and update; see also 'updateWithKey'.
+-- This function returns the changed value if it is updated, or
+-- the original value if the entry is deleted.
+--
+-- > let f k x = if x == 5 then Just (x + fromEnum (k < "d")) else Nothing
+-- > updateLookupWithKey f "a" (fromList [("b",3), ("a",5)]) == (Just 6, fromList [("a", 6), ("b",3)])
+-- > updateLookupWithKey f "c" (fromList [("a",5), ("b",3)]) == (Nothing, fromList [("a",5), ("b",3)])
+-- > updateLookupWithKey f "b" (fromList [("a",5), ("b",3)]) == (Just 3, singleton "a" 5)
+updateLookupWithKey :: (CritBitKey k) => (k -> v -> Maybe v) -> k
+                       -> CritBit k v -> (Maybe v, CritBit k v)
+updateLookupWithKey f k (CritBit root) = (second CritBit) $! go root
+  where
+    go i@(Internal left right _ _)
+      | direction k i == 0 = case go left of
+                               (res, Empty) -> (res, right)
+                               (res, l)     -> (res, i { ileft = l })
+      | otherwise          = case go right of
+                               (res, Empty) -> (res, left)
+                               (res, r)     -> (res, i { iright = r })
+    go (Leaf lk lv)
+      | k == lk = case f k lv of
+                    Just lv' -> (Just lv', Leaf lk lv')
+                    Nothing  -> (Just lv, Empty)
+    go _ = (Nothing, Empty)
+{-# INLINABLE updateLookupWithKey #-}
 
 -- | /O(log n)/. Returns the value associated with the given key, or
 -- the given default value if the key is not in the map.
