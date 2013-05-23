@@ -98,6 +98,21 @@ t_delete_present _ (KV kvs) k v =
     c = C.insert k v $ C.fromList kvs
     m = Map.insert k v $ Map.fromList kvs
 
+naiveUpdateLookupWithKey :: (CritBitKey k) => (k -> v -> Maybe v) -> k
+                         -> CritBit k v -> (Maybe v, CritBit k v)
+naiveUpdateLookupWithKey g k m =
+  case C.lookup k m of
+    Just v  -> case g k v of
+      Just v' -> (Just v', C.insert k v' m)
+      Nothing -> (Just v, C.delete k m)
+    Nothing -> (Nothing, m)
+
+updateFunction :: (CritBitKey k) => k -> V -> Maybe V
+updateFunction k x
+  | even (fromIntegral x :: Int) =
+    Just (x + fromIntegral (C.byteCount k))
+  | otherwise = Nothing
+
 t_updateWithKey_general :: (CritBitKey k)
                         => (k -> V -> CritBit k V -> CritBit k V)
                         -> k -> V -> CB k -> Bool
@@ -105,16 +120,8 @@ t_updateWithKey_general h k0 v0 (CB m0) =
     C.updateWithKey f k0 m1 == naiveUpdateWithKey f k0 m1
   where
     m1 = h k0 v0 m0
-    naiveUpdateWithKey g k m =
-      case C.lookup k m of
-        Just v  -> case g k v of
-                     Just v' -> C.insert k v' m
-                     Nothing -> C.delete k m
-        Nothing -> m
-    f k x
-      | even (fromIntegral x :: Int) =
-        Just (x + fromIntegral (C.byteCount k))
-      | otherwise = Nothing
+    naiveUpdateWithKey g k = snd . naiveUpdateLookupWithKey g k
+    f = updateFunction
 
 t_updateWithKey_present :: (CritBitKey k) => k -> V -> CB k -> Bool
 t_updateWithKey_present = t_updateWithKey_general C.insert
@@ -126,10 +133,7 @@ t_mapMaybeWithKey :: (CritBitKey k) => k -> CB k -> Bool
 t_mapMaybeWithKey _ (CB m) = C.mapMaybeWithKey f m ==
     C.map fromJust (C.filter isJust (C.mapWithKey f m))
   where
-    f k x
-      | even (fromIntegral x :: Int) =
-        Just (x + fromIntegral (C.byteCount k))
-      | otherwise = Nothing
+    f = updateFunction
 
 t_unionL :: (CritBitKey k, Ord k) => k -> KV k -> KV k -> Bool
 t_unionL _ (KV kv0) (KV kv1) =
