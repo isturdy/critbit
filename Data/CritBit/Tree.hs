@@ -281,7 +281,7 @@ updateWithKey f k = snd . updateLookupWithKey f k
 -- > adjustWithKey f "c" (fromList [("a",5), ("b",3)]) == fromList [("a",5), ("b",3)]
 -- > adjustWithKey f "c" empty                         == empty
 adjust :: (CritBitKey k) => (v -> v) -> k -> CritBit k v -> CritBit k v
-adjust f = updateWithKey (\_ v -> Just (f v))
+adjust f = adjustWithKey (const f)
 {-# INLINABLE adjust #-}
 
 -- | /O(log n)/. Adjust a value at a specific key. When the key is not
@@ -293,7 +293,23 @@ adjust f = updateWithKey (\_ v -> Just (f v))
 -- > adjustWithKey f "c" empty                         == empty
 adjustWithKey :: (CritBitKey k) => (k -> v -> v) -> k -> CritBit k v
               -> CritBit k v
-adjustWithKey f = updateWithKey (\k v -> Just (f k v))
+adjustWithKey f k t@(CritBit root) = go root CritBit
+  where
+    go i@(Internal left right _ _) cont
+      | direction k i == 0 =
+        case left of
+          Leaf lk lv
+            | lk == k   -> cont $! i { ileft = Leaf lk (f lk lv) }
+            | otherwise -> t
+          _ -> go left $ \l -> cont $! i { ileft = l }
+      | otherwise =
+        case right of
+          Leaf lk lv
+            | lk == k   -> cont $! i { iright = Leaf lk (f lk lv) }
+            | otherwise -> t
+          _ -> go right $ \r -> cont $! i { iright = r }
+    go (Leaf lk lv) _ | k == lk = CritBit $ Leaf lk (f lk lv)
+    go _ _ = t
 {-# INLINABLE adjustWithKey #-}
 
 -- | /O(log n)/. Returns the value associated with the given key, or
