@@ -547,8 +547,14 @@ main = do
                                     else Nothing
                              altF Nothing  = Just 1
                           in [
-          bench "critbit" $  whnf (C.alter altF key) b_critbit
-        , bench "map" $ whnf (Map.alter altF key) b_map
+          bgroup "present" [
+            bench "critbit" $  whnf (C.alter altF key) b_critbit
+          , bench "map" $ whnf (Map.alter altF key) b_map
+          ]
+        , bgroup "missing" [
+            bench "critbit" $  whnf (C.alter altF key) b_critbit_1
+          , bench "map" $ whnf (Map.alter altF key) b_map_1
+          ]
         ]
      , bgroup "partitionWithKey" $ let predicate k _ = odd $ C.byteCount k
                                        forcePair (a,b) = a `seq` b `seq` (a,b)
